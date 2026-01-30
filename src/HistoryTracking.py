@@ -1,17 +1,24 @@
+import os
 from MyMQTT import MyMQTT
 import cherrypy
 from datetime import datetime
+import json
 
 class HistoryTracking:
     exposed = True
 
     def __init__(self) -> None:
-        self.mqtt_client = MyMQTT("HistoryTrackingClient", "broker.hivemq.com", 1883, self)
+        broker_host = os.getenv("BROKER_HOST", "127.0.0.1")
+        try:
+            broker_port = int(os.getenv("BROKER_PORT", "1883"))
+        except ValueError:
+            broker_port = 1883
+
+        self.mqtt_client = MyMQTT("HistoryTrackingClientLocal", broker_host, broker_port, self)
 
     def Start(self):
         self.mqtt_client.start()
-        self.mqtt_client.mySubscribe("home/sensor/temperature")
-        self.mqtt_client.mySubscribe("home/sensor/humidity")
+        self.mqtt_client.mySubscribe("devices/+/readings/#")
     
     def Stop(self):
         self.mqtt_client.stop()
@@ -32,14 +39,20 @@ class HistoryTracking:
             raise cherrypy.HTTPError(400, "start_time must be before end_time")
 
         try:
-            return self.retrieve_history(device_id, start_dt, end_dt)
+            readings = self.retrieve_history(device_id, start_dt, end_dt)
+            return {"readings": readings}
         except Exception as e:
             cherrypy.log(f"Database Error: {str(e)}") 
             raise cherrypy.HTTPError(500, "Internal Server Error")
 
 
     def notify(self, topic, msg):
-        print(f"HistoryTracking received message on topic {topic}: {msg}")
+        try:
+            print(f"Message received on {topic}: {msg}")
+            device_id = topic.split("/")[1]
+            self.store_in_history(device_id, msg)
+        except Exception as e:
+            print("Error decoding message", e)
 
 
     def store_in_history(self, device_id, data):
