@@ -2,9 +2,9 @@ import os
 from MyMQTT import MyMQTT
 import cherrypy
 from datetime import datetime
-import json
+from abc import ABC, abstractmethod
 
-class HistoryTracking:
+class HistoryTracking(ABC):
     exposed = True
 
     def __init__(self) -> None:
@@ -25,7 +25,12 @@ class HistoryTracking:
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def GET(self, device_id=None, start_time=None, end_time=None):
+    def GET(self, *uri, **params):
+
+        device_id = params.get("device_id")
+        start_time = params.get("start_time")
+        end_time = params.get("end_time")
+
         if not all([device_id, start_time, end_time]):
             raise cherrypy.HTTPError(400, "Missing device_id, start_time or end_time")
         
@@ -54,12 +59,12 @@ class HistoryTracking:
         except Exception as e:
             print("Error decoding message", e)
 
-
+    @abstractmethod
     def store_in_history(self, device_id, data):
         # Placeholder for storing the message in a history tracking system
         pass
 
-    
+    @abstractmethod
     def retrieve_history(self, device_id, start_time, end_time):
         # Placeholder for retrieving historical data
         pass
