@@ -3,18 +3,44 @@ from MyMQTT import MyMQTT
 import cherrypy
 from datetime import datetime
 from abc import ABC, abstractmethod
+import requests as req
 
 class HistoryTracking(ABC):
     exposed = True
 
     def __init__(self) -> None:
-        broker_host = os.getenv("BROKER_HOST", "127.0.0.1")
+        self.broker_host = os.getenv("BROKER_HOST")
+        if not self.broker_host:
+            raise ValueError("BROKER_HOST environment variable not set")
+        
+        self.broker_port = os.getenv("BROKER_PORT")
+        if not self.broker_port:
+            raise ValueError("BROKER_PORT environment variable not set")
+        self.broker_port = int(self.broker_port)
+        
+        self.catalog = os.getenv("CATALOG_ADDRESS")
+        if not self.catalog:
+            raise ValueError("CATALOG_ADDRESS environment variable not set")
+        
+        self.address = os.getenv("HISTORY_TRACKING_ADDRESS")
+        if not self.address:
+            raise ValueError("HISTORY_TRACKING_ADDRESS environment variable not set")
+        
         try:
-            broker_port = int(os.getenv("BROKER_PORT", "1883"))
-        except ValueError:
-            broker_port = 1883
+            self.register()
+        except Exception as e:
+            print("Error while registering: ", e)
 
-        self.mqtt_client = MyMQTT("HistoryTrackingClientLocal", broker_host, broker_port, self)
+        self.mqtt_client = MyMQTT("HistoryTrackingClientLocal", self.broker_host, self.broker_port, self)
+
+    def register(self) -> None:
+        data = {
+            "service_type": "history-tracking",
+            "address": self.address,
+            "description": "History Tracking adaptor that handles storage and retrieval of historical readings"
+        }
+
+        req.post(f"http://{self.catalog}/service", json=data)
 
     def Start(self):
         self.mqtt_client.start()
