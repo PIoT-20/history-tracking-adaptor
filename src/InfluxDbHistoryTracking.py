@@ -5,12 +5,21 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 from datetime import datetime
 
 class InfluxDbHistoryTracking(HistoryTracking):
-    def __init__(self) -> None:
-        super().__init__()
-        self.token = os.getenv("INFLUXDB_TOKEN", "my-super-secret-token-123")
-        self.org = os.getenv("INFLUXDB_ORG", "PIoT-20")
-        self.url = os.getenv("INFLUXDB_URL", "http://localhost:8086")
-        self.bucket = os.getenv("INFLUXDB_BUCKET", "sensor-data")
+    def __init__(self, broker_host, broker_port, catalog, address, token, org, url, bucket) -> None:
+        super().__init__(broker_host, broker_port, catalog, address)
+        if not token:
+            raise ValueError("InfluxDB token must be provided")
+        if not org: 
+            raise ValueError("InfluxDB organization must be provided")
+        if not url:
+            raise ValueError("InfluxDB URL must be provided")
+        if not bucket:            
+            raise ValueError("InfluxDB bucket must be provided")
+
+        self.token = token
+        self.org = org
+        self.url = url
+        self.bucket = bucket
 
     def Start(self):
         super().Start()
@@ -20,12 +29,12 @@ class InfluxDbHistoryTracking(HistoryTracking):
         self.client.close()
         super().Stop()
 
-    def store_in_history(self, device_id, data):
+    def store_in_history(self, device_id, ts, data):
         print("Storing in DB:", data)
         write_api = self.client.write_api(write_options=SYNCHRONOUS)
         points = []
         for measurement, value in data.items():
-            point = Point(measurement).tag("DID", device_id).field("value", value)
+            point = Point(measurement).tag("DID", device_id).field("value", value).time(ts)
             points.append(point)
         print(write_api.write(bucket=self.bucket, record=points))
 

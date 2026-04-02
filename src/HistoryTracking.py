@@ -1,30 +1,40 @@
 import os
+from wsgiref import validate
 from MyMQTT import MyMQTT
 import cherrypy
 from datetime import datetime
 from abc import ABC, abstractmethod
 import requests as req
+from jsonschema import validate, ValidationError
 
 class HistoryTracking(ABC):
+    SENSOR_DATA_SCHEMA = {
+        "type": "object",
+        "required": ["data"],
+        "optional": ["timestamp"],
+        "properties": {
+            "data": {"type": "object", "additionalProperties": {"type": "number"}},
+            "timestamp": {"type": "string", "format": "date-time"}
+        }
+    }
+
     exposed = True
 
-    def __init__(self) -> None:
-        self.broker_host = os.getenv("BROKER_HOST")
-        if not self.broker_host:
-            raise ValueError("BROKER_HOST environment variable not set")
-        
-        self.broker_port = os.getenv("BROKER_PORT")
+    def __init__(self, broker_host, broker_port, catalog, address) -> None:
+        self.broker_host = broker_host
+        self.broker_port = broker_port
+        self.catalog = catalog
+        self.address = address
+
         if not self.broker_port:
-            raise ValueError("BROKER_PORT environment variable not set")
+            raise ValueError("Broker Port must be provided")
         self.broker_port = int(self.broker_port)
         
-        self.catalog = os.getenv("CATALOG_ADDRESS")
         if not self.catalog:
-            raise ValueError("CATALOG_ADDRESS environment variable not set")
+            raise ValueError("Catalog address must be provided")
         
-        self.address = os.getenv("HISTORY_TRACKING_ADDRESS")
         if not self.address:
-            raise ValueError("HISTORY_TRACKING_ADDRESS environment variable not set")
+            raise ValueError("Service address must be provided")
         
         try:
             self.register()
@@ -81,12 +91,19 @@ class HistoryTracking(ABC):
         try:
             print(f"Message received on {topic}: {msg}")
             device_id = topic.split("/")[1]
-            self.store_in_history(device_id, msg)
+            validate(instance=msg, schema=self.SENSOR_DATA_SCHEMA)
+
+            ts = msg.get("timestamp", datetime.now().isoformat())
+            data = msg.get("data")
+            self.store_in_history(device_id, ts, data)
+            
+        except ValidationError as e:
+            print("Invalid message", e)
         except Exception as e:
             print("Error decoding message", e)
 
     @abstractmethod
-    def store_in_history(self, device_id, data):
+    def store_in_history(self, device_id, ts, data):
         # Placeholder for storing the message in a history tracking system
         pass
 

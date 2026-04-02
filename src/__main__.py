@@ -1,3 +1,5 @@
+from more_itertools import bucket
+
 from InfluxDbHistoryTracking import InfluxDbHistoryTracking
 import cherrypy
 import os
@@ -12,6 +14,28 @@ def json_error_page(status, message, traceback, version):
     }).encode('utf-8')
 
 if __name__ == "__main__":
+    
+    broker_host = os.getenv("BROKER_HOST")
+    broker_port = int(os.getenv("BROKER_PORT")) 
+    catalog = os.getenv("CATALOG_ADDRESS")
+    address = os.getenv("HISTORY_TRACKING_ADDRESS")
+    url = os.getenv("INFLUXDB_URL")
+    token = os.getenv("INFLUXDB_TOKEN")
+    org = os.getenv("INFLUXDB_ORG")
+    bucket = os.getenv("INFLUXDB_BUCKET")
+    
+    service = InfluxDbHistoryTracking(
+        broker_host=broker_host,
+        broker_port=broker_port,
+        catalog=catalog,
+        address=address,
+        token=token,
+        org=org,
+        url=url,
+        bucket=bucket
+    )
+    
+    
     conf={
         '/':{
             'request.dispatch':cherrypy.dispatch.MethodDispatcher(),
@@ -25,7 +49,6 @@ if __name__ == "__main__":
             'error_page.default': json_error_page
         },
     }
-    service = InfluxDbHistoryTracking()
     service.Start()
     
     cherrypy.config.update({'server.socket_host': '0.0.0.0', "server.socket_port": 8080})
