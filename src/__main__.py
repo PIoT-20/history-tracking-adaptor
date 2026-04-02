@@ -35,7 +35,6 @@ if __name__ == "__main__":
         bucket=bucket
     )
     
-    
     conf={
         '/':{
             'request.dispatch':cherrypy.dispatch.MethodDispatcher(),
@@ -45,13 +44,12 @@ if __name__ == "__main__":
             'tools.json_in.on': True,
             'request.show_tracebacks': False,
             'request.show_mismatched_params': False,
-            'engine.autoreload.on': True,
             'error_page.default': json_error_page
         },
     }
     service.Start()
     
-    cherrypy.config.update({'server.socket_host': '0.0.0.0', "server.socket_port": 8080})
+    cherrypy.config.update({'server.socket_host': '0.0.0.0', "server.socket_port": 8080, 'engine.autoreload.on': False})
     cherrypy.tree.mount(service, '/readings', conf)
     cherrypy.engine.start()
     cherrypy.engine.block()

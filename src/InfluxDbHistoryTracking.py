@@ -36,7 +36,7 @@ class InfluxDbHistoryTracking(HistoryTracking):
         for measurement, value in data.items():
             point = Point(measurement).tag("DID", device_id).field("value", value).time(ts)
             points.append(point)
-        print(write_api.write(bucket=self.bucket, record=points))
+        write_api.write(bucket=self.bucket, record=points)
 
 
     def retrieve_history(self, device_id, start_time: datetime, end_time: datetime):

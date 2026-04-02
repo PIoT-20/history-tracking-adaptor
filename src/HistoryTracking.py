@@ -6,6 +6,7 @@ from datetime import datetime
 from abc import ABC, abstractmethod
 import requests as req
 from jsonschema import validate, ValidationError
+import json
 
 class HistoryTracking(ABC):
     SENSOR_DATA_SCHEMA = {
@@ -36,12 +37,19 @@ class HistoryTracking(ABC):
         if not self.address:
             raise ValueError("Service address must be provided")
         
-        try:
-            self.register()
-        except Exception as e:
-            print("Error while registering: ", e)
+        self.load_cfg()
 
         self.mqtt_client = MyMQTT("HistoryTrackingClientLocal", self.broker_host, self.broker_port, self)
+
+
+    def load_cfg(self):
+        try:
+            self.cfg = json.load(open("cfg.json", "r"))
+        except FileNotFoundError:
+            self.cfg = {}
+
+    def save_cfg(self):
+        json.dump(self.cfg, open("cfg.json", "w"))
 
     def register(self) -> None:
         data = {
@@ -50,11 +58,40 @@ class HistoryTracking(ABC):
             "description": "History Tracking adaptor that handles storage and retrieval of historical readings"
         }
 
-        req.post(f"http://{self.catalog}/service", json=data)
+        response = req.post(f"{self.catalog}/service", json=data)
+
+        if response.status_code == 201:
+            self.cfg["service_id"] = response.json().get("_id").get("$oid")
+            self.save_cfg()
+
+        else:
+            raise Exception(f"Failed to register service: {response.text}")
+
+    def update_registration(self) -> None:
+        data = {
+            "id": {"$oid": self.cfg["service_id"]},
+            "service_type": "history-tracking",
+            "address": self.address,
+            "description": "History Tracking adaptor that handles storage and retrieval of historical readings"
+        }
+
+        response = req.put(f"{self.catalog}/service/", json=data)
+
+        if response.status_code == 201:
+            print("Registration updated successfully. Id: ", self.cfg["service_id"])
+        else:
+            raise Exception(f"Failed to update registration: {response.text}")
+
 
     def Start(self):
+        if not self.cfg.get("service_id"):
+            self.register()
+        else:
+            self.update_registration()
+            
         self.mqtt_client.start()
         self.mqtt_client.mySubscribe("devices/+/readings/#")
+        print("Started")
     
     def Stop(self):
         self.mqtt_client.stop()
