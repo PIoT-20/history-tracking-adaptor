@@ -108,10 +108,12 @@ class HistoryTracking(ABC):
             raise cherrypy.HTTPError(400, "Missing device_id, start_time or end_time")
         
         try:
-            start_dt = datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%S")
-            end_dt = datetime.strptime(end_time, "%Y-%m-%dT%H:%M:%S")
+            start_time_clean = start_time.rstrip('Z')
+            end_time_clean = end_time.rstrip('Z')
+            start_dt = datetime.fromisoformat(start_time_clean)
+            end_dt = datetime.fromisoformat(end_time_clean)
         except ValueError:
-            raise cherrypy.HTTPError(400, "Invalid date format. Use YYYY-MM-DDTHH:MM:SS")
+            raise cherrypy.HTTPError(400, "Invalid date format. Use YYYY-MM-DDTHH:MM:SS or YYYY-MM-DDTHH:MM:SSZ")
 
         if start_dt >= end_dt:
             raise cherrypy.HTTPError(400, "start_time must be before end_time")
