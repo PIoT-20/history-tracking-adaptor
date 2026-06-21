@@ -60,34 +60,15 @@ class HistoryTracking(ABC):
 
         response = req.post(f"{self.catalog}/service", json=data)
 
-        if response.status_code == 201:
+        if response.status_code == 201 or response.status_code == 200:
             self.cfg["service_id"] = response.json().get("_id").get("$oid")
             self.save_cfg()
 
         else:
             raise Exception(f"Failed to register service: {response.text}")
 
-    def update_registration(self) -> None:
-        data = {
-            "id": {"$oid": self.cfg["service_id"]},
-            "service_type": "history-tracking",
-            "address": self.address,
-            "description": "History Tracking adaptor that handles storage and retrieval of historical readings"
-        }
-
-        response = req.put(f"{self.catalog}/service/", json=data)
-
-        if response.status_code == 201:
-            print("Registration updated successfully. Id: ", self.cfg["service_id"])
-        else:
-            raise Exception(f"Failed to update registration: {response.text}")
-
-
     def Start(self):
-        if not self.cfg.get("service_id"):
-            self.register()
-        else:
-            self.update_registration()
+        self.register()
             
         self.mqtt_client.start()
         self.mqtt_client.mySubscribe("devices/+/readings/#")
