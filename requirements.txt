@@ -3,3 +3,4 @@ paho-mqtt==1.6.1
 CherryPy
 requests
 jsonschema
+pandas
